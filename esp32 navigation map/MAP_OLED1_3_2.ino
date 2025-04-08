@@ -22,28 +22,28 @@ bool deviceConnected = false;
 uint32_t initialDistance = 0;
 uint32_t currentDistance = 0;
 
-// ====== Các hàm vẽ ======
+// ====== Drawing Functions ======
 void drawLeftArrow() {
-  display.fillRect(58, 5, 11, 25, SH110X_WHITE);
-  display.fillRect(45, 5, 13, 10, SH110X_WHITE);
-  display.fillTriangle(32, 10, 45, 0, 45, 20, SH110X_WHITE);
+  display.fillRect(85, 5, 11, 25, SH110X_WHITE);
+  display.fillRect(72, 5, 13, 10, SH110X_WHITE);
+  display.fillTriangle(59, 10, 72, 0, 72, 20, SH110X_WHITE);
 }
 
 void drawRightArrow() {
-  display.fillRect(58, 5, 11, 25, SH110X_WHITE);
-  display.fillRect(69, 5, 13, 10, SH110X_WHITE);
-  display.fillTriangle(95, 10, 82, 0, 82, 20, SH110X_WHITE);
+  display.fillRect(85, 5, 11, 25, SH110X_WHITE);
+  display.fillRect(96, 5, 13, 10, SH110X_WHITE);
+  display.fillTriangle(122, 10, 109, 0, 109, 20, SH110X_WHITE);
 }
 
 void drawStraightArrow() {
-  display.fillRect(58, 10, 11, 19, SH110X_WHITE);
-  display.fillTriangle(63, 2, 47, 14, 79, 14, SH110X_WHITE);
+  display.fillRect(90, 10, 11, 19, SH110X_WHITE);
+  display.fillTriangle(95, 2, 79, 14, 111, 14, SH110X_WHITE);
 }
 
 void drawDestinationIcon() {
-  display.fillRect(50, 10, 8, 30, SH110X_WHITE);
-  display.fillRect(70, 10, 8, 30, SH110X_WHITE);
-  display.fillRect(58, 22, 12, 6, SH110X_WHITE);
+  display.fillRect(80, 10, 8, 30, SH110X_WHITE);
+  display.fillRect(100, 10, 8, 30, SH110X_WHITE);
+  display.fillRect(88, 22, 12, 6, SH110X_WHITE);
 }
 
 void drawDistanceBar(uint32_t distanceTravelled, uint32_t maxDistance) {
@@ -58,33 +58,33 @@ void drawDistanceBar(uint32_t distanceTravelled, uint32_t maxDistance) {
   display.fillRect(barX + 1, barY + 1, fillWidth, barHeight - 2, SH110X_WHITE);
 
   uint32_t remainingDistance = maxDistance - distanceTravelled;
-  display.setTextSize(2);
-  display.setCursor(SCREEN_WIDTH - 40, barY - 16);
+  display.setTextSize(1);
+  display.setCursor(SCREEN_WIDTH - 30, barY - 10);
   display.print(remainingDistance);
   display.print("m");
 }
 
-// ====== Các hàm gọi lại BLE ======
+// ====== BLE Callbacks ======
 class MyServerCallbacks: public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
     deviceConnected = true;
-    Serial.println("Thiết bị đã kết nối");
+    Serial.println("Device connected");
     display.clearDisplay();
     display.setTextSize(2);
     display.setTextColor(SH110X_WHITE);
     display.setCursor(20, 20);
-    display.println("Đã kết nối");
+    display.println("Connected");
     display.display();
   }
 
   void onDisconnect(BLEServer* pServer) {
     deviceConnected = false;
-    Serial.println("Thiết bị đã ngắt kết nối");
+    Serial.println("Device disconnected");
     display.clearDisplay();
     display.setTextSize(2);
     display.setTextColor(SH110X_WHITE);
     display.setCursor(20, 20);
-    display.println("Đã ngắt kết nối");
+    display.println("Disconnected");
     display.display();
     BLEDevice::startAdvertising();
   }
@@ -92,8 +92,8 @@ class MyServerCallbacks: public BLEServerCallbacks {
 
 class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
-    std::string value = pCharacteristic->getValue(); // Đúng: std::string từ getValue()
-    Serial.print("Nhận được dữ liệu (bytes): ");
+    std::string value = pCharacteristic->getValue();
+    Serial.print("Received data (bytes): ");
     Serial.println(value.length());
 
     if (value.length() < 1) return;
@@ -104,23 +104,26 @@ class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
     if (value[0] == 0x01 && value.length() >= 3) {
       uint8_t speed = value[1];
       display.setTextSize(2);
-      display.setCursor(10, 10);
+      display.setCursor(5, 10);
       display.print(speed);
-      display.print(" km/h");
+
+      display.setTextSize(1);
+      display.setCursor(5, 30);
+      display.print("km/h");
 
       uint8_t direction = value[2];
       switch (direction) {
-        case 0x08: drawLeftArrow(); break;   // Mũi tên trái
-        case 0x0A: drawRightArrow(); break;  // Mũi tên phải
-        case 0x04: drawStraightArrow(); break; // Mũi tên thẳng
+        case 0x08: drawLeftArrow(); break;
+        case 0x0A: drawRightArrow(); break;
+        case 0x04: drawStraightArrow(); break;
         default: break;
       }
 
       if (value.length() > 3) {
         std::string distanceStr = value.substr(3);
         if (distanceStr == "No route") {
-          drawDestinationIcon(); // Vẽ biểu tượng đích đến
-          Serial.println("Không có tuyến đường");
+          drawDestinationIcon();
+          Serial.println("No route");
         } else {
           float distance = 0;
           if (distanceStr.find("km") != std::string::npos) {
@@ -144,16 +147,16 @@ class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
   }
 };
 
-// ====== Cài đặt & Vòng lặp ======
+// ====== Setup & Loop ======
 void setup() {
   Serial.begin(115200);
-  Wire.begin(21, 22); // Điều chỉnh dựa trên cách nối dây của bạn
+  Wire.begin(21, 22);
   display.begin(OLED_I2C_ADDRESS, true);
   display.clearDisplay();
   display.setTextSize(2);
   display.setTextColor(SH110X_WHITE);
   display.setCursor(20, 20);
-  display.println("Đang khởi động...");
+  display.println("Starting...");
   display.display();
 
   BLEDevice::init("ESP32_Sygic_HUD");
@@ -175,7 +178,7 @@ void setup() {
   pAdvertising->addServiceUUID(SERVICE_UUID);
   BLEDevice::startAdvertising();
 
-  Serial.println("Đang chờ kết nối từ Sygic...");
+  Serial.println("Waiting for connection from Sygic...");
 }
 
 void loop() {
